@@ -8,5 +8,6 @@ import java.util.List;
 
 @Repository
 public interface NoteRepository extends JpaRepository<NoteEntity, Long> {
+    List<NoteEntity> findByUserUsername(String username);
     List<NoteEntity> findByTitleContainingOrContentContaining(String t, String c);
 }
