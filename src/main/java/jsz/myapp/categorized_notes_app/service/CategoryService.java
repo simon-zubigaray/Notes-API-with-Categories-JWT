@@ -27,14 +27,14 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public CategoryDTO getCategoryById(Long id) {
         CategoryEntity category = categoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Categoría no encontrada con id: " + id));
         return getCategoryDTO(category);
     }
 
     @Transactional
     public CategoryDTO updateCategory(CategoryDTO categoryDTO) {
         CategoryEntity category = categoryRepository.findById(categoryDTO.getId())
-                .orElseThrow(() -> new RuntimeException("Category not found with id: " + categoryDTO.getId()));
+                .orElseThrow(() -> new RuntimeException("Categoría no encontrada con id: " + categoryDTO.getId()));
 
         category.setName(categoryDTO.getName());
         CategoryEntity updated = categoryRepository.save(category);
@@ -44,7 +44,7 @@ public class CategoryService {
     @Transactional
     public CategoryDTO deleteCategory(Long id) {
         CategoryEntity category = categoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Categoría no encontrada con id: " + id));
 
         CategoryDTO categoryDTO = getCategoryDTO(category);
         categoryRepository.deleteById(id);
