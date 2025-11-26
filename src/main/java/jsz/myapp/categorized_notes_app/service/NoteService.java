@@ -8,6 +8,7 @@ import jsz.myapp.categorized_notes_app.entity.UserEntity;
 import jsz.myapp.categorized_notes_app.repository.CategoryRepository;
 import jsz.myapp.categorized_notes_app.repository.NoteRepository;
 import jsz.myapp.categorized_notes_app.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -17,16 +18,11 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class NoteService {
     private final NoteRepository noteRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
-
-    public NoteService(NoteRepository noteRepository, CategoryRepository categoryRepository, UserRepository userRepository){
-        this.noteRepository = noteRepository;
-        this.categoryRepository = categoryRepository;
-        this.userRepository = userRepository;
-    }
 
     public List<NoteEntity> getAll() {
         return noteRepository.findAll();
