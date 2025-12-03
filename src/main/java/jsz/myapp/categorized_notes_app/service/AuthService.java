@@ -50,29 +50,24 @@ public class AuthService {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        // Asignar roles
+        RoleEntity defaultRole = roleRepository.findByName("USER")
+                .orElseGet(() -> {
+                    RoleEntity newRole = new RoleEntity();
+                    newRole.setName("USER");
+                    return roleRepository.save(newRole);
+                });
+
         Set<RoleEntity> roles = new HashSet<>();
-        if (request.getRoles() != null && !request.getRoles().isEmpty()) {
-            // Si se enviaron roles específicos, usarlos
-            roles = request.getRoles();
-        } else {
-            // Por defecto, asignar rol USER
-            RoleEntity defaultRole = roleRepository.findByName("USER")
-                    .orElseGet(() -> {
-                        RoleEntity newRole = new RoleEntity();
-                        newRole.setName("USER");
-                        return roleRepository.save(newRole);
-                    });
-            roles.add(defaultRole);
-        }
+        roles.add(defaultRole);
         user.setRoles(roles);
 
-        userRepository.save(user);
+        UserEntity savedUser = userRepository.save(user);
 
         // Generar tokens
-        return getAuthResponse(user);
+        return getAuthResponse(savedUser);
     }
 
+    @Transactional(readOnly = true)
     public AuthResponse login(AuthRequest request) {
         // Autenticar usuario
         authenticationManager.authenticate(
@@ -90,32 +85,7 @@ public class AuthService {
         return getAuthResponse(user);
     }
 
-    private AuthResponse getAuthResponse(UserEntity user) {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-
-        // Extraer roles para incluir en el token
-        List<String> roles = user.getRoles().stream()
-                .map(RoleEntity::getName)
-                .collect(Collectors.toList());
-
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", roles);
-        claims.put("email", user.getEmail());
-        claims.put("fullName", user.getFullName());
-
-        String accessToken = jwtUtil.generateToken(claims, userDetails);
-        String refreshToken = jwtUtil.generateRefreshToken(userDetails);
-
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .roles(roles) // CAMBIO: ahora es lista
-                .build();
-    }
-
+    @Transactional(readOnly = true)
     public AuthResponse refreshToken(String refreshToken) {
         String username = jwtUtil.extractUsername(refreshToken);
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
@@ -127,25 +97,39 @@ public class AuthService {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
+        return getAuthResponse(user);
+    }
+
+    private AuthResponse getAuthResponse(UserEntity user) {
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
+
+        // Extraer roles
         List<String> roles = user.getRoles().stream()
                 .map(RoleEntity::getName)
                 .collect(Collectors.toList());
 
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", roles);
-        claims.put("email", user.getEmail());
-        claims.put("fullName", user.getFullName());
+        // Construir claims
+        Map<String, Object> claims = buildClaims(user, roles);
 
-        String newAccessToken = jwtUtil.generateToken(claims, userDetails);
-        String newRefreshToken = jwtUtil.generateRefreshToken(userDetails);
+        // Generar tokens
+        String accessToken = jwtUtil.generateToken(claims, userDetails);
+        String refreshToken = jwtUtil.generateRefreshToken(userDetails);
 
         return AuthResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .roles(roles)
                 .build();
+    }
+
+    private Map<String, Object> buildClaims(UserEntity user, List<String> roles) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", roles);
+        claims.put("email", user.getEmail());
+        claims.put("fullName", user.getFullName());
+        return claims;
     }
 }

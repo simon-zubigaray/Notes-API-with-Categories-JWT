@@ -1,5 +1,6 @@
 package jsz.myapp.categorized_notes_app.service;
 
+import org.springframework.transaction.annotation.Transactional;
 import jsz.myapp.categorized_notes_app.dto.NoteDTO;
 import jsz.myapp.categorized_notes_app.dto.UserDTO;
 import jsz.myapp.categorized_notes_app.entity.CategoryEntity;
@@ -14,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -24,109 +24,81 @@ public class NoteService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
 
-    public List<NoteEntity> getAll() {
-        return noteRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<NoteDTO> getAll() {
+        return noteRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .toList();
     }
 
-    public void save(NoteDTO noteDto, String username) {
-
+    @Transactional
+    public NoteDTO save(NoteDTO noteDto, String username) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        CategoryEntity categoryEntity = categoryRepository.findById(noteDto.getCategoryId())
+        CategoryEntity category = categoryRepository.findById(noteDto.getCategoryId())
                 .orElseThrow(() -> new RuntimeException("Categoria no encontrada"));
 
-        NoteEntity note = new NoteEntity(
-                noteDto.getId(),
-                noteDto.getTitle(),
-                noteDto.getContent(),
-                categoryEntity,
-                user
-        );
+        NoteEntity note = new NoteEntity();
+        note.setTitle(noteDto.getTitle());
+        note.setContent(noteDto.getContent());
+        note.setCategory(category);
+        note.setUser(user);
 
-        noteRepository.save(note);
+        NoteEntity savedNote = noteRepository.save(note);
+        return convertToDTO(savedNote);
     }
 
+    @Transactional(readOnly = true)
     public Optional<NoteDTO> findById(Long id) {
-        Optional<NoteEntity> note = noteRepository.findById(id);
-
-        UserEntity userEntity = userRepository.findByUsername(note.get().getUser().getUsername())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-        UserDTO userDto = new UserDTO(
-                userEntity.getId(),
-                userEntity.getUsername()
-        );
-
-        return Optional.of(new NoteDTO(
-                note.get().getId(),
-                note.get().getTitle(),
-                note.get().getContent(),
-                note.get().getCategory().getId(),
-                userDto
-        ));
+        return noteRepository.findById(id)
+                .map(this::convertToDTO);
     }
 
+    @Transactional(readOnly = true)
     public List<NoteDTO> findByUserUsername(String username) {
         List<NoteEntity> notes = noteRepository.findByUserUsername(username);
-
         return notes.stream()
-                .map(note -> new NoteDTO(
-                        note.getId(),
-                        note.getTitle(),
-                        note.getContent(),
-                        note.getCategory().getId(),
-                        new UserDTO(
-                                note.getUser().getId(),
-                                note.getUser().getUsername()
-                        )
-                ))
-                .collect(Collectors.toList());
+                .map(this::convertToDTO)
+                .toList();
     }
 
+    @Transactional
     public NoteDTO updateNote(NoteDTO noteDTO, Long id) {
-        NoteEntity note = noteRepository.findById(id).orElseThrow();
-        CategoryEntity category = categoryRepository.getCategoryEntityById(id);
+        NoteEntity note = noteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Nota no encontrada con id: " + id));
 
-        UserEntity userEntity = userRepository.findByUsername(note.getUser().getUsername())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        CategoryEntity category = categoryRepository.findById(noteDTO.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Categoria no encontrada con id: " + noteDTO.getCategoryId()));
 
         note.setTitle(noteDTO.getTitle());
         note.setContent(noteDTO.getContent());
         note.setCategory(category);
-        note.setUser(userEntity);
 
-        NoteEntity updatedNote = noteRepository.save(note);
-
-        return new NoteDTO(
-                updatedNote.getId(),
-                updatedNote.getTitle(),
-                updatedNote.getContent(),
-                updatedNote.getCategory().getId(),
-                new UserDTO(
-                        userEntity.getId(),
-                        userEntity.getUsername()
-                )
-        );
+        return convertToDTO(note);
     }
 
+    @Transactional
     public NoteDTO deleteNote(Long id) {
-        NoteEntity note = noteRepository.findById(id).orElseThrow();
+        NoteEntity note = noteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Nota no encontrada con id: " + id));
 
-        UserEntity userEntity = userRepository.findByUsername(note.getUser().getUsername())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
+        NoteDTO noteDTO = convertToDTO(note);
         noteRepository.deleteById(id);
 
-        return new NoteDTO(
-                note.getId(),
-                note.getTitle(),
-                note.getContent(),
-                note.getCategory().getId(),
-                new UserDTO(
-                        userEntity.getId(),
-                        userEntity.getUsername()
-                )
-        );
+        return noteDTO;
+    }
+
+    private NoteDTO convertToDTO(NoteEntity note) {
+        return NoteDTO.builder()
+                .id(note.getId())
+                .title(note.getTitle())
+                .content(note.getContent())
+                .categoryId(note.getCategory().getId())
+                .userDTO(UserDTO.builder()
+                        .id(note.getUser().getId())
+                        .username(note.getUser().getUsername())
+                        .build())
+                .build();
     }
 }

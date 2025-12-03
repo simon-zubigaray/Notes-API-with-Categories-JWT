@@ -9,6 +9,7 @@ import jsz.myapp.categorized_notes_app.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -19,26 +20,39 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public List<CategoryDTO> getAllCategories() {
-        return categoryRepository.findAll().stream()
+        List<CategoryEntity> categories = categoryRepository.findAllWithNotes();
+        return categories.stream()
                 .map(this::getCategoryDTO)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public CategoryDTO getCategoryById(Long id) {
-        CategoryEntity category = categoryRepository.findById(id)
+        CategoryEntity category = categoryRepository.findByIdWithNotes(id)
                 .orElseThrow(() -> new RuntimeException("Categoría no encontrada con id: " + id));
         return getCategoryDTO(category);
     }
 
     @Transactional
-    public CategoryDTO updateCategory(CategoryDTO categoryDTO) {
-        CategoryEntity category = categoryRepository.findById(categoryDTO.getId())
+    public CategoryDTO save(CategoryDTO categoryDTO) {
+        CategoryEntity categoryEntity = CategoryEntity.builder()
+                .id(categoryDTO.getId())
+                .name(categoryDTO.getName())
+                .notes(new ArrayList<>())
+                .build();
+
+        CategoryEntity savedCategory = categoryRepository.save(categoryEntity);
+        return convertToDTO(savedCategory);
+    }
+
+    @Transactional
+    public CategoryDTO updateCategory(CategoryDTO categoryDTO, Long id) {
+        CategoryEntity category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Categoría no encontrada con id: " + categoryDTO.getId()));
 
         category.setName(categoryDTO.getName());
-        CategoryEntity updated = categoryRepository.save(category);
-        return getCategoryDTO(updated);
+
+        return getCategoryDTO(category);
     }
 
     @Transactional
@@ -52,6 +66,14 @@ public class CategoryService {
     }
 
     private CategoryDTO getCategoryDTO(CategoryEntity category) {
+        return getListCategoryDTO(category);
+    }
+
+    private CategoryDTO convertToDTO(CategoryEntity category){
+        return getListCategoryDTO(category);
+    }
+
+    private CategoryDTO getListCategoryDTO(CategoryEntity category) {
         List<NoteDTO> notes = category.getNotes().stream()
                 .map(note -> new NoteDTO(
                         note.getId(),

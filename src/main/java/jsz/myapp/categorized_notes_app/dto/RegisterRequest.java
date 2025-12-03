@@ -33,5 +33,5 @@ public class RegisterRequest {
     @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
     private String password;
 
-    private Set<RoleEntity> roles; // Opcional, por defecto será USER
+    private Set<RoleEntity> roles;
 }
