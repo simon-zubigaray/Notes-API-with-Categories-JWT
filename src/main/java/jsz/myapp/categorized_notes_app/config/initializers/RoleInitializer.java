@@ -4,9 +4,13 @@ import jsz.myapp.categorized_notes_app.entity.RoleEntity;
 import jsz.myapp.categorized_notes_app.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+@Transactional
 @Component
+@Order(1)
 @RequiredArgsConstructor
 public class RoleInitializer implements CommandLineRunner {
 
@@ -17,7 +21,6 @@ public class RoleInitializer implements CommandLineRunner {
         // Crear roles si no existen
         createRoleIfNotExists("USER");
         createRoleIfNotExists("ADMIN");
-        createRoleIfNotExists("MODERATOR"); // opcional
     }
 
     private void createRoleIfNotExists(String roleName) {

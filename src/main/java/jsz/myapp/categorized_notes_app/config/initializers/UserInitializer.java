@@ -2,81 +2,60 @@ package jsz.myapp.categorized_notes_app.config.initializers;
 
 import jsz.myapp.categorized_notes_app.entity.RoleEntity;
 import jsz.myapp.categorized_notes_app.entity.UserEntity;
+import jsz.myapp.categorized_notes_app.repository.RoleRepository;
 import jsz.myapp.categorized_notes_app.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.Set;
 
-@Configuration
+@Transactional
+@Component
+@Order(2)
 @RequiredArgsConstructor
-@Slf4j
-public class UserInitializer {
+public class UserInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Bean
-    public CommandLineRunner initDatabase() {
-        return args -> {
-            log.info("🚀 Iniciando precarga de datos...");
+    @Override
+    public void run(String... args) {
+        initDatabase();
+    }
 
-            // Verificar si ya existen usuarios
-            if (userRepository.count() == 0) {
-                // Crear usuario ADMIN
-                UserEntity admin = new UserEntity();
-                admin.setFullName("Administrador del Sistema");
-                admin.setUsername("admin");
-                admin.setEmail("admin@example.com");
-                admin.setPassword(passwordEncoder.encode("admin123"));
-                admin.setRoles(new HashSet<RoleEntity>(Set.of(
-                        RoleEntity.builder()
-                                .name("ADMIN")
-                                .build(),
-                        RoleEntity.builder()
-                                .name("USER")
-                                .build()
-                )));
-                userRepository.save(admin);
-                log.info("✅ Usuario ADMIN creado: username=admin, password=admin123");
+    private void initDatabase() {
 
-                // Crear usuario normal
-                UserEntity user = new UserEntity();
-                user.setFullName("Usuario Normal");
-                user.setUsername("user");
-                user.setEmail("user@example.com");
-                user.setPassword(passwordEncoder.encode("user123"));
-                user.setRoles(new HashSet<RoleEntity>(Set.of(
-                        RoleEntity.builder()
-                                .name("USER")
-                                .build()
-                )));
-                userRepository.save(user);
-                log.info("✅ Usuario USER creado: username=user, password=user123");
+        // Crear roles si no existen
+        RoleEntity adminRole = roleRepository.findByName("ADMIN")
+                .orElseGet(() -> roleRepository.save(RoleEntity.builder().name("ADMIN").build()));
 
-                // Crear usuario adicional
-                UserEntity john = new UserEntity();
-                john.setFullName("John Doe");
-                john.setUsername("john");
-                john.setEmail("john@example.com");
-                john.setPassword(passwordEncoder.encode("john123"));
-                john.setRoles(new HashSet<RoleEntity>(Set.of(
-                        RoleEntity.builder()
-                                .name("USER")
-                                .build()
-                )));
-                userRepository.save(john);
-                log.info("✅ Usuario USER creado: username=john, password=john123");
+        RoleEntity userRole = roleRepository.findByName("USER")
+                .orElseGet(() -> roleRepository.save(RoleEntity.builder().name("USER").build()));
 
-                log.info("🎉 Precarga de datos completada exitosamente!");
-            } else {
-                log.info("ℹ️ La base de datos ya contiene usuarios, omitiendo precarga.");
-            }
-        };
+        if (userRepository.count() == 0) {
+
+            // Usuario ADMIN
+            UserEntity admin = new UserEntity();
+            admin.setFullName("Administrador del Sistema");
+            admin.setUsername("admin");
+            admin.setEmail("admin@example.com");
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setRoles(Set.of(adminRole, userRole)); // Esto ahora SI funciona
+            userRepository.save(admin);
+
+            // Usuario USER
+            UserEntity user = new UserEntity();
+            user.setFullName("Usuario Normal");
+            user.setUsername("user");
+            user.setEmail("user@example.com");
+            user.setPassword(passwordEncoder.encode("user123"));
+            user.setRoles(Set.of(userRole));
+            userRepository.save(user);
+        }
     }
 }
